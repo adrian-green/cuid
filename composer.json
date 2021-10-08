@@ -1,0 +1,34 @@
+{
+    "name": "adriangreen/cuid",
+    "description": "Cuid php port",
+    "keywords": ["cuid", "uuid", "guid", "uid", "id"],
+    "license": "MIT",
+    "type": "library",
+    "authors": [
+        {
+            "name": "Endy Jasmi",
+            "email": "endyjasmi@gmail.com",
+            "role": "Developer"
+        },
+        {
+            "name": "Adrian Green",
+            "email": "git@adriangreen.org",
+            "role": "Developer"
+        }
+    ],
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "autoload": {
+        "psr-4": {
+            "AdrianGreen\\": "src/"
+        }
+    },
+    "require": {
+        "php": ">= 7.1"
+    },
+    "require-dev": {
+        "squizlabs/php_codesniffer": "1.*",
+        "phpunit/phpunit": "^9",
+        "satooshi/php-coveralls": "0.*"
+    }
+}
