@@ -1,8 +1,14 @@
 <?php
-namespace AdrianGreen;
 
+use AdrianGreen\Cuid;
 use PHPUnit\Framework\TestCase as TestCase;
-
+class ChildCuid extends Cuid
+{
+    public static function getFingerprint($blocksize)
+    {
+        return self::fingerprint($blocksize);
+    }
+}
 class CuidTest extends TestCase
 {
     const MAX_ITERATION    = 100000;
@@ -101,5 +107,13 @@ class CuidTest extends TestCase
     public function testIsCuidMethod()
     {
         $this->assertTrue(Cuid::isCuid(Cuid::cuid()));
+    }
+
+    public function testProtectedFingerprintResultIsStatic()
+    {
+        ChildCuid::init();
+        foreach ([Cuid::SMALL_BLOCK, Cuid::NORMAL_BLOCK] as $blocksize) {
+            $this->assertEquals(ChildCuid::getFingerprint($blocksize), ChildCuid::getFingerprint($blocksize));
+        }
     }
 }

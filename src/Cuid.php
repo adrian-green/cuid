@@ -91,10 +91,10 @@ class Cuid
      */
     protected static function fingerprint(int $blockSize = self::NORMAL_BLOCK): string
     {
-        static $fingerprint = ''; //memoized result
+        static $fingerprint = []; //memoized result
 
-        if($fingerprint) {
-            return $fingerprint;
+        if(isset($fingerprint[$blockSize])) {
+            return $fingerprint[$blockSize];
         }
 
         // Generate process id based hash
@@ -126,10 +126,10 @@ class Cuid
 
         // Return small or normal block of hash
         if ($blockSize === self::SMALL_BLOCK) {
-            return $pid[0] . \substr($print, -1);
+            return $fingerprint[$blockSize]  = $pid[0] . \substr($print, -1);
         }
 
-        return $fingerprint = $pid . $print;
+        return $fingerprint[$blockSize] = $pid . $print;
     }
 
     /**
