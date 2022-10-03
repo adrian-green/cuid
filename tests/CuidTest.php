@@ -2,6 +2,7 @@
 
 use AdrianGreen\Cuid;
 use PHPUnit\Framework\TestCase as TestCase;
+
 class ChildCuid extends Cuid
 {
     public static function getFingerprint($blocksize)
@@ -9,10 +10,11 @@ class ChildCuid extends Cuid
         return self::fingerprint($blocksize);
     }
 }
+
 class CuidTest extends TestCase
 {
-    const MAX_ITERATION    = 100000;
-    const MIN_ITERATION    = 12000;
+    const MAX_ITERATION = 100000;
+    const MIN_ITERATION = 12000;
 
     public function testInvokeMagicMethod()
     {
@@ -91,6 +93,52 @@ class CuidTest extends TestCase
         }
     }
 
+    public function testCuidMonotoniclyEncreasing()
+    {
+        $lasthash = '';
+        for ($i = 1; $i <= static::MAX_ITERATION; $i++) {
+            $hash = Cuid::cuid();
+
+            $this->assertGreaterThan($lasthash, $hash);
+
+            $lasthash = $hash;
+        }
+    }
+
+    /**
+     * @group skip
+     */
+    public function testCuidUniquenessExtreme()
+    {
+        $extreme = 100 * static::MAX_ITERATION;
+        $ids     = [];
+        for ($i = 0; $i < $extreme; $i++) {
+            $hash = Cuid::cuid();
+
+            $this->assertFalse(isset($ids[$hash]));
+
+            $ids[$hash] = $i;
+        }
+    }
+
+    /**
+     * @group skip
+     * Only valid if testCuidMonotoniclyEncreasing is OK
+     * @throws \Exception
+     */
+    public function testCuidUniquenessExtremeSPL()
+    {
+        $extreme = 100 * static::MAX_ITERATION;
+        $ids     = new SplFixedArray($extreme);
+        $ids[0] = Cuid::cuid();
+        for ($i = 1; $i < $extreme; $i++) {
+            $hash = Cuid::cuid();
+            $this->assertNotEquals($ids[$i-1] , $hash);
+            $ids[$i] = $hash;
+        }
+
+    }
+
     public function testSlugUniqueness()
     {
         $ids = [];
@@ -103,7 +151,7 @@ class CuidTest extends TestCase
             $ids[$hash] = $i;
         }
     }
-    
+
     public function testIsCuidMethod()
     {
         $this->assertTrue(Cuid::isCuid(Cuid::cuid()));

@@ -3,14 +3,38 @@ declare(strict_types=1);
 
 namespace AdrianGreen;
 
+use function array_reduce;
+use function base_convert;
+use function floor;
+use function gethostname;
+use function getmypid;
+use function microtime;
+use function ord;
+use function preg_match;
+use function random_int;
+use function str_pad;
+use function str_split;
+use function strlen;
+use function substr;
+use const STR_PAD_LEFT;
 
 /**
  * Cuid is a library to create collision resistant ids optimized for horizontal scaling and performance.
  */
 class Cuid
 {
-    public const REGEX_SHORT_CUID = '/^[0-9a-z]{8,}$/';
-    public const REGEX_CUID       = '/^c[0-9a-z]{24,}$/';
+    public const REGEX_SHORT_CUID = '/^[0-9a-z]{2}\d{2}[0-9a-z]{4}$/';
+    /**
+     * Broken down
+     * c - h72gsb32 - 0000 - udoc - l363eofy **
+     * The groups, in order, are:
+     * 'c' - identifies this as a cuid, and allows you to use it in html entity ids.
+     * Timestamp
+     * Counter - a single process might generate the same random string. The weaker the pseudo-random source, the higher the probability. That problem gets worse as processors get faster. The counter will roll over if the value gets too big.
+     * Client fingerprint
+     * Random (using cryptographically secure libraries where available).
+     */
+    public const REGEX_CUID       = '/^c[0-9a-z]{8}\d{4}[0-9a-z]{12}$/';
 
     /**
      * Base 36 constant
@@ -34,31 +58,26 @@ class Cuid
 
     private const MAXINT = self::BASE36 ** self::NORMAL_BLOCK;
 
-    /**
-     * @var $hostname string
-     */
-    private static $hostname;
-    /**
-     * @var $pid int
-     */
-    private static $pid;
-    /**
-     * @var $inited bool flag to test if one-time setup has run
-     */
-    private static $inited = false;
+    private const PREFIX = 'c';
 
-    private static $fingerprint = '';
+    private static string $hostname;
+
+    private static int $pid;
+    /**
+     * flag to test if one-time setup has run
+     */
+    private static bool $initialized = false;
 
     public static function init(): void
     {
-        if(self::$inited) {
+        if(self::$initialized) {
             return;
         }
 
-        static::$hostname = \gethostname(); //gethostname() is extremely slow
-        static::$pid = \getmypid();
+        static::$hostname = gethostname(); //gethostname() is extremely slow
+        static::$pid = getmypid();
 
-        self::$inited = true;
+        self::$initialized = true;
     }
     /**
      * Counter used to prevent same machine collision
@@ -72,7 +91,7 @@ class Cuid
         static $count = 0;
 
         return self::pad(
-            \base_convert(
+            base_convert(
                 (string) ++$count,
                 self::DECIMAL,
                 self::BASE36
@@ -99,7 +118,7 @@ class Cuid
 
         // Generate process id based hash
         $pid = self::pad(
-            \base_convert(
+            base_convert(
                 (string) static::$pid,
                 self::DECIMAL,
                 self::BASE36
@@ -110,13 +129,13 @@ class Cuid
         // Generate hostname based hash
 
         $print = self::pad(
-            \base_convert(
-                (string) \array_reduce(
-                    \str_split(static::$hostname),
+            base_convert(
+                (string) array_reduce(
+                    str_split(static::$hostname),
                     static function ($carry, $char) {
-                        return $carry + \ord($char);
+                        return $carry + ord($char);
                     },
-                    \strlen(static::$hostname) + self::BASE36
+                    strlen(static::$hostname) + self::BASE36
                 ),
                 self::DECIMAL,
                 self::BASE36
@@ -126,7 +145,7 @@ class Cuid
 
         // Return small or normal block of hash
         if ($blockSize === self::SMALL_BLOCK) {
-            return $fingerprint[$blockSize]  = $pid[0] . \substr($print, -1);
+            return $fingerprint[$blockSize]  = $pid[0] . substr($print, -1);
         }
 
         return $fingerprint[$blockSize] = $pid . $print;
@@ -142,14 +161,14 @@ class Cuid
      */
     protected static function pad(string $input, int $size): string
     {
-        $input = \str_pad(
+        $input = str_pad(
             $input,
             self::BASE36,
             '0',
             STR_PAD_LEFT
         );
 
-        return \substr($input, \strlen($input) - $size);
+        return substr($input, strlen($input) - $size);
     }
 
     /**
@@ -162,13 +181,9 @@ class Cuid
      */
     protected static function random(int $blockSize = self::NORMAL_BLOCK): string
     {
-        // Get random integer
-        $random = \random_int(0, static::MAXINT);
-
-        // Convert integer to hash
         $hash = self::pad(
-            \base_convert(
-                (string) \floor($random),
+            base_convert(
+                (string) random_int(0, static::MAXINT),
                 self::DECIMAL,
                 self::BASE36
             ),
@@ -177,7 +192,7 @@ class Cuid
 
         // Limit hash if small block required
         if ($blockSize === self::SMALL_BLOCK) {
-            $hash = \substr($hash, -2);
+            $hash = substr($hash, -2);
         }
 
         return $hash;
@@ -193,15 +208,15 @@ class Cuid
     protected static function timestamp(int $blockSize = self::NORMAL_BLOCK): string
     {
         // Convert current time up to micro second to hash
-        $hash = \base_convert(
-            (string) \floor(\microtime(true) * 1000),
+        $hash = base_convert(
+            (string) floor(microtime(true) * 1000),
             self::DECIMAL,
             self::BASE36
         );
 
         // Limit hash if small block required
         if ($blockSize === self::SMALL_BLOCK) {
-            $hash = \substr($hash, -2);
+            $hash = substr($hash, -2);
         }
 
         return $hash;
@@ -226,13 +241,13 @@ class Cuid
      */
     public static function cuid(): string
     {
-        // we MUST init to preload expensive vars
-        if (!self::$inited) {
+        // initialize to preload expensive vars
+        if (!self::$initialized) {
             self::init();
         }
 
         return
-            'c' .
+            self::PREFIX .
             self::timestamp() .
             self::count() .
             self::fingerprint() .
@@ -265,8 +280,8 @@ class Cuid
      */
     public static function slug(): string
     {
-        // we MUST init to preload expensive vars
-        if(! self::$inited) {
+        // initialize to preload expensive vars
+        if(! self::$initialized) {
             self::init();
         }
 
@@ -279,7 +294,9 @@ class Cuid
 
     /**
      * Check if string is a valid 'cuid'.
-     * All it actually does it check the cuid is prefixed with a 'c' char
+     * Checks the cuid is prefixed with a 'c' char then
+     * tests the cuid matches on a regex
+     * Does not work with a 'slug'
      *
      * @param string $cuid
      *
@@ -288,8 +305,8 @@ class Cuid
 
     public static function isCuid(string $cuid): bool
     {
-        if ($cuid[0] === 'c') {
-            return (bool) \preg_match(self::REGEX_CUID, $cuid);
+        if ($cuid[0] === self::PREFIX && 25 === strlen($cuid)) {
+            return (bool) preg_match(self::REGEX_CUID, $cuid);
         }
 
         return false;
